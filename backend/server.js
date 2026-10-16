@@ -62,7 +62,7 @@ app.use((req, res) => {
 });
 
 // Centralized error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error("Unhandled Server Error:", err);
   res.status(err.status || 500).json({
     message: err.message || "Internal server error"

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 
 // Login
-import Login from "./pages/Login";
+import Login from "./pages/login";
 
 // Student pages
 import Dashboard from "./pages/student/Dashboard";

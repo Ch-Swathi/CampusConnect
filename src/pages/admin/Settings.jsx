@@ -1,42 +1,74 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api, getStoredUser, setAuth, getToken } from "../../services/api";
 
 function Settings() {
-  const [adminName, setAdminName] = useState(
-    localStorage.getItem("adminName") || "Campus Admin"
-  );
-
-  const [email, setEmail] = useState(
-    localStorage.getItem("adminEmail") || "admin@campusconnect.com"
-  );
-
+  const [adminName, setAdminName] = useState("Campus Admin");
+  const [email, setEmail] = useState("admin@campusconnect.com");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const saveSettings = (e) => {
+  useEffect(() => {
+    async function loadAdminInfo() {
+      try {
+        const user = getStoredUser();
+        if (user) {
+          setAdminName(user.name || "Campus Admin");
+          setEmail(user.email || "admin@campusconnect.com");
+        } else {
+          const res = await api.auth.getMe();
+          if (res && res.user) {
+            setAdminName(res.user.name);
+            setEmail(res.user.email);
+          }
+        }
+      } catch (err) {
+        console.warn("Using default admin details:", err.message);
+      }
+    }
+
+    loadAdminInfo();
+  }, []);
+
+  const saveSettings = async (e) => {
     e.preventDefault();
-
-    localStorage.setItem("adminName", adminName);
-    localStorage.setItem("adminEmail", email);
-
-    setSaved(true);
-
-    setTimeout(() => {
-      setSaved(false);
-    }, 2500);
+    try {
+      setSaving(true);
+      const res = await api.auth.updateProfile({ name: adminName });
+      if (res && res.user) {
+        setAuth(getToken(), res.user);
+      }
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+      }, 2500);
+    } catch (err) {
+      alert(err.message || "Failed to save settings.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const clearNotifications = () => {
-    localStorage.removeItem("notifications");
-    alert("Notifications cleared.");
+  const clearNotifications = async () => {
+    try {
+      await api.notifications.clear();
+      alert("Notifications cleared successfully.");
+    } catch (err) {
+      alert(err.message || "Failed to clear notifications.");
+    }
   };
 
-  const resetAnnouncements = () => {
+  const resetAnnouncements = async () => {
     const confirmReset = window.confirm(
       "Are you sure you want to delete all announcements?"
     );
 
     if (confirmReset) {
-      localStorage.removeItem("announcements");
-      alert("Announcements deleted.");
+      try {
+        await api.announcements.deleteAll();
+        alert("Announcements deleted successfully.");
+      } catch (err) {
+        alert(err.message || "Failed to delete announcements.");
+      }
     }
   };
 
@@ -56,6 +88,7 @@ function Settings() {
             marginBottom: "20px",
             borderRadius: "8px",
             background: "#e8f7ee",
+            color: "#166534"
           }}
         >
           Settings saved successfully.
@@ -85,6 +118,7 @@ function Settings() {
               value={adminName}
               onChange={(e) => setAdminName(e.target.value)}
               required
+              disabled={saving}
             />
           </div>
 
@@ -94,13 +128,13 @@ function Settings() {
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              disabled
+              title="Admin account email is fixed to login identity"
             />
           </div>
 
-          <button type="submit" className="primary-button">
-            Save Settings
+          <button type="submit" className="primary-button" disabled={saving}>
+            {saving ? "Saving..." : "Save Settings"}
           </button>
         </form>
       </div>
@@ -109,7 +143,7 @@ function Settings() {
         <div className="table-header">
           <div>
             <h2>Application Data</h2>
-            <p>Manage locally stored application information.</p>
+            <p>Manage persistent campus data.</p>
           </div>
         </div>
 
@@ -123,7 +157,7 @@ function Settings() {
           </button>
 
           <button
-            className="danger-button"
+            className="delete-button"
             onClick={resetAnnouncements}
           >
             Delete All Announcements
@@ -145,11 +179,15 @@ function Settings() {
           </p>
 
           <p>
-            <strong>Platform:</strong> React + Vite
+            <strong>Platform:</strong> React + Vite + Node.js + Express + MongoDB
           </p>
 
           <p>
             <strong>Version:</strong> 1.0
+          </p>
+
+          <p>
+            <strong>Database:</strong> MongoDB Atlas Connected
           </p>
         </div>
       </div>
