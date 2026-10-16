@@ -1,47 +1,41 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../../services/api";
 
 function MyLostFound() {
-
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-
-    const saved =
-      JSON.parse(localStorage.getItem("lostFoundItems")) || [];
-
-    setItems(
-      saved.filter(
-        (item) => item.student === "Swathi"
-      )
-    );
-
-  }, []);
-
-
-  const deleteItem = (id) => {
-
-    const allItems =
-      JSON.parse(localStorage.getItem("lostFoundItems")) || [];
-
-    const updated =
-      allItems.filter(
-        (item) => item.id !== id
-      );
-
-    localStorage.setItem(
-      "lostFoundItems",
-      JSON.stringify(updated)
-    );
-
-    setItems(
-      updated.filter(
-        (item) => item.student === "Swathi"
-      )
-    );
-
+  const fetchMyItems = async () => {
+    try {
+      setLoading(true);
+      const data = await api.lostFound.getMy();
+      if (Array.isArray(data)) {
+        setItems(data);
+      }
+    } catch (error) {
+      console.error("Error fetching my lost & found items:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    fetchMyItems();
+  }, []);
+
+  const deleteItem = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this post?");
+    if (!confirmDelete) return;
+
+    try {
+      await api.lostFound.delete(id);
+      setItems((prev) => prev.filter((item) => (item.id || item._id) !== id));
+      alert("Post deleted successfully!");
+    } catch (error) {
+      alert(error.message || "Failed to delete post");
+    }
+  };
 
   return (
     <div>
@@ -63,7 +57,11 @@ function MyLostFound() {
 
       <div className="dashboard-card">
 
-        {items.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+            Loading your posts...
+          </div>
+        ) : items.length === 0 ? (
 
           <div className="empty-state">
 
@@ -88,61 +86,62 @@ function MyLostFound() {
 
           <div className="my-post-list">
 
-            {items.map((item) => (
-
-              <div
-                className="my-post-row"
-                key={item.id}
-              >
-
-                <div className="my-post-icon">
-                  {item.type === "Lost" ? "🔴" : "🟢"}
-                </div>
-
-
-                <div className="my-post-info">
-
-                  <h3>{item.itemName}</h3>
-
-                  <p>
-                    {item.type} • {item.location}
-                  </p>
-
-                  <small>
-                    Posted on {item.datePosted}
-                  </small>
-
-                </div>
-
-
-                <span
-                  className={
-                    item.type === "Lost"
-                      ? "item-badge lost"
-                      : "item-badge found"
-                  }
+            {items.map((item) => {
+              const itemId = item.id || item._id;
+              return (
+                <div
+                  className="my-post-row"
+                  key={itemId}
                 >
-                  {item.type}
-                </span>
+
+                  <div className="my-post-icon">
+                    {item.type === "Lost" ? "🔴" : "🟢"}
+                  </div>
 
 
-                <span className="item-status">
-                  {item.status}
-                </span>
+                  <div className="my-post-info">
+
+                    <h3>{item.itemName}</h3>
+
+                    <p>
+                      {item.type} • {item.location}
+                    </p>
+
+                    <small>
+                      Posted on {item.datePosted || item.date}
+                    </small>
+
+                  </div>
 
 
-                <button
-                  className="delete-button"
-                  onClick={() =>
-                    deleteItem(item.id)
-                  }
-                >
-                  Delete
-                </button>
+                  <span
+                    className={
+                      item.type === "Lost"
+                        ? "item-badge lost"
+                        : "item-badge found"
+                    }
+                  >
+                    {item.type}
+                  </span>
 
-              </div>
 
-            ))}
+                  <span className="item-status">
+                    {item.status}
+                  </span>
+
+
+                  <button
+                    className="delete-button"
+                    onClick={() =>
+                      deleteItem(itemId)
+                    }
+                  >
+                    Delete
+                  </button>
+
+                </div>
+              );
+            })}
 
           </div>
 

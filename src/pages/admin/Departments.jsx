@@ -1,392 +1,100 @@
 import { useEffect, useState } from "react";
+import { api } from "../../services/api";
 
 function Departments() {
-
   const [departments, setDepartments] = useState([]);
-
   const [search, setSearch] = useState("");
-
   const [showForm, setShowForm] = useState(false);
-
   const [editingDepartment, setEditingDepartment] = useState(null);
-
   const [name, setName] = useState("");
-
   const [description, setDescription] = useState("");
-
-
-  // =========================
-  // LOAD DEPARTMENTS
-  // =========================
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-
     loadDepartments();
-
   }, []);
 
-
-  const loadDepartments = () => {
-
-    const saved =
-      JSON.parse(localStorage.getItem("departments"));
-
-    if (saved && saved.length > 0) {
-
-      setDepartments(saved);
-
-    } else {
-
-      const defaultDepartments = [
-
-        {
-          id: 1,
-          name: "Computer Science & Engineering",
-          description: "Computer Science and software related complaints"
-        },
-
-        {
-          id: 2,
-          name: "Electronics & Communication",
-          description: "Electronics and communication related complaints"
-        },
-
-        {
-          id: 3,
-          name: "Electrical & Electronics",
-          description: "Electrical and power related complaints"
-        },
-
-        {
-          id: 4,
-          name: "Mechanical Engineering",
-          description: "Mechanical and laboratory related complaints"
-        },
-
-        {
-          id: 5,
-          name: "Civil Engineering",
-          description: "Civil infrastructure and building related complaints"
-        },
-
-        {
-          id: 6,
-          name: "Information Technology",
-          description: "IT infrastructure and computer related complaints"
-        },
-
-        {
-          id: 7,
-          name: "Hostel",
-          description: "Hostel and accommodation related complaints"
-        },
-
-        {
-          id: 8,
-          name: "Library",
-          description: "Library related complaints"
-        },
-
-        {
-          id: 9,
-          name: "Transport",
-          description: "College transport related complaints"
-        },
-
-        {
-          id: 10,
-          name: "Administration",
-          description: "General administration related complaints"
-        }
-
-      ];
-
-
-      localStorage.setItem(
-        "departments",
-        JSON.stringify(defaultDepartments)
-      );
-
-      setDepartments(defaultDepartments);
-
+  const loadDepartments = async () => {
+    try {
+      setLoading(true);
+      const data = await api.departments.getAll();
+      if (Array.isArray(data)) {
+        setDepartments(data);
+      }
+    } catch (error) {
+      console.error("Error loading departments:", error);
+    } finally {
+      setLoading(false);
     }
-
   };
-
-
-  // =========================
-  // OPEN ADD FORM
-  // =========================
 
   const openAddForm = () => {
-
     setEditingDepartment(null);
-
     setName("");
-
     setDescription("");
-
     setShowForm(true);
-
   };
-
-
-  // =========================
-  // OPEN EDIT FORM
-  // =========================
 
   const openEditForm = (department) => {
-
     setEditingDepartment(department);
-
     setName(department.name);
-
-    setDescription(
-      department.description || ""
-    );
-
+    setDescription(department.description || "");
     setShowForm(true);
-
   };
 
-
-  // =========================
-  // SAVE DEPARTMENT
-  // =========================
-
-  const saveDepartment = () => {
-
+  const saveDepartment = async () => {
     if (!name.trim()) {
-
       alert("Please enter department name.");
-
       return;
-
     }
 
-
-    const saved =
-      JSON.parse(localStorage.getItem("departments")) || [];
-
-
-    if (editingDepartment) {
-
-      const updated = saved.map(
-        (department) => {
-
-          if (
-            department.id ===
-            editingDepartment.id
-          ) {
-
-            return {
-
-              ...department,
-
-              name: name.trim(),
-
-              description:
-                description.trim()
-
-            };
-
-          }
-
-          return department;
-
-        }
-      );
-
-
-      localStorage.setItem(
-        "departments",
-        JSON.stringify(updated)
-      );
-
-      setDepartments(updated);
-
-      alert(
-        "Department updated successfully!"
-      );
-
-    } else {
-
-      // Check duplicate
-
-      const exists = saved.some(
-        (department) =>
-          department.name.toLowerCase() ===
-          name.trim().toLowerCase()
-      );
-
-
-      if (exists) {
-
-        alert(
-          "This department already exists."
-        );
-
-        return;
-
+    try {
+      setSaving(true);
+      if (editingDepartment) {
+        const deptId = editingDepartment.id || editingDepartment._id;
+        await api.departments.update(deptId, {
+          name: name.trim(),
+          description: description.trim()
+        });
+        alert("Department updated successfully!");
+      } else {
+        await api.departments.create({
+          name: name.trim(),
+          description: description.trim()
+        });
+        alert("Department added successfully!");
       }
 
-
-      const newDepartment = {
-
-        id: Date.now(),
-
-        name: name.trim(),
-
-        description:
-          description.trim()
-
-      };
-
-
-      const updated = [
-        ...saved,
-        newDepartment
-      ];
-
-
-      localStorage.setItem(
-        "departments",
-        JSON.stringify(updated)
-      );
-
-      setDepartments(updated);
-
-      alert(
-        "Department added successfully!"
-      );
-
+      await loadDepartments();
+      setShowForm(false);
+    } catch (error) {
+      alert(error.message || "Failed to save department.");
+    } finally {
+      setSaving(false);
     }
-
-
-    setShowForm(false);
-
   };
 
+  const deleteDepartment = async (id, deptName) => {
+    const confirmDelete = window.confirm(`Delete ${deptName}?`);
+    if (!confirmDelete) return;
 
-  // =========================
-  // DELETE DEPARTMENT
-  // =========================
-
-  const deleteDepartment = (id) => {
-
-    const department =
-      departments.find(
-        (item) => item.id === id
-      );
-
-
-    const complaints =
-      JSON.parse(
-        localStorage.getItem("complaints")
-      ) || [];
-
-
-    const complaintCount =
-      complaints.filter(
-        (complaint) =>
-          complaint.department ===
-          department.name
-      ).length;
-
-
-    if (complaintCount > 0) {
-
-      alert(
-        `This department has ${complaintCount} complaint(s). Reassign the complaints before deleting the department.`
-      );
-
-      return;
-
+    try {
+      await api.departments.delete(id);
+      alert("Department deleted successfully!");
+      await loadDepartments();
+    } catch (error) {
+      alert(error.message || "Failed to delete department");
     }
-
-
-    const confirmDelete =
-      window.confirm(
-        `Delete ${department.name}?`
-      );
-
-
-    if (!confirmDelete) {
-
-      return;
-
-    }
-
-
-    const updated =
-      departments.filter(
-        (item) => item.id !== id
-      );
-
-
-    localStorage.setItem(
-      "departments",
-      JSON.stringify(updated)
-    );
-
-
-    setDepartments(updated);
-
-    alert(
-      "Department deleted successfully!"
-    );
-
   };
 
-
-  // =========================
-  // SEARCH
-  // =========================
-
-  const filteredDepartments =
-    departments.filter(
-      (department) => {
-
-        const text =
-          `${department.name}
-           ${department.description}`
-            .toLowerCase();
-
-        return text.includes(
-          search.toLowerCase()
-        );
-
-      }
-    );
-
-
-  // =========================
-  // COMPLAINT COUNT
-  // =========================
-
-  const getComplaintCount = (
-    departmentName
-  ) => {
-
-    const complaints =
-      JSON.parse(
-        localStorage.getItem("complaints")
-      ) || [];
-
-
-    return complaints.filter(
-      (complaint) =>
-        complaint.department ===
-        departmentName
-    ).length;
-
-  };
-
+  const filteredDepartments = departments.filter((department) => {
+    const text = `${department.name || ""} ${department.description || ""}`.toLowerCase();
+    return text.includes(search.toLowerCase());
+  });
 
   return (
-
     <div>
-
 
       {/* PAGE HEADER */}
 
@@ -403,7 +111,6 @@ function Departments() {
           </p>
 
         </div>
-
 
         <button
           className="primary-button"
@@ -437,7 +144,11 @@ function Departments() {
 
       {/* DEPARTMENT GRID */}
 
-      {filteredDepartments.length === 0 ? (
+      {loading ? (
+        <div className="dashboard-card" style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+          Loading departments...
+        </div>
+      ) : filteredDepartments.length === 0 ? (
 
         <div className="empty-state">
 
@@ -457,14 +168,13 @@ function Departments() {
 
         <div className="department-grid">
 
-          {filteredDepartments.map(
-            (department) => (
-
+          {filteredDepartments.map((department) => {
+            const deptId = department.id || department._id;
+            return (
               <div
                 className="department-card"
-                key={department.id}
+                key={deptId}
               >
-
 
                 <div className="department-card-top">
 
@@ -472,27 +182,21 @@ function Departments() {
                     🏢
                   </div>
 
-
                   <div className="department-actions">
 
                     <button
                       className="edit-button"
                       onClick={() =>
-                        openEditForm(
-                          department
-                        )
+                        openEditForm(department)
                       }
                     >
                       Edit
                     </button>
 
-
                     <button
                       className="delete-button"
                       onClick={() =>
-                        deleteDepartment(
-                          department.id
-                        )
+                        deleteDepartment(deptId, department.name)
                       }
                     >
                       Delete
@@ -502,17 +206,13 @@ function Departments() {
 
                 </div>
 
-
                 <h2>
                   {department.name}
                 </h2>
 
-
                 <p>
-                  {department.description ||
-                    "No description available."}
+                  {department.description || "No description available."}
                 </p>
-
 
                 <div className="department-footer">
 
@@ -521,18 +221,14 @@ function Departments() {
                   </span>
 
                   <strong>
-                    {getComplaintCount(
-                      department.name
-                    )}
+                    {department.complaintCount || 0}
                   </strong>
 
                 </div>
 
-
               </div>
-
-            )
-          )}
+            );
+          })}
 
         </div>
 
@@ -547,17 +243,14 @@ function Departments() {
 
           <div className="department-modal">
 
-
             <div className="modal-header">
 
               <div>
 
                 <h2>
-
                   {editingDepartment
                     ? "Edit Department"
                     : "Add Department"}
-
                 </h2>
 
                 <p>
@@ -565,7 +258,6 @@ function Departments() {
                 </p>
 
               </div>
-
 
               <button
                 className="close-button"
@@ -594,6 +286,7 @@ function Departments() {
                   setName(e.target.value)
                 }
                 placeholder="Enter department name"
+                required
               />
 
             </div>
@@ -611,9 +304,7 @@ function Departments() {
                 rows="4"
                 value={description}
                 onChange={(e) =>
-                  setDescription(
-                    e.target.value
-                  )
+                  setDescription(e.target.value)
                 }
                 placeholder="Enter department description"
               />
@@ -630,22 +321,24 @@ function Departments() {
                 onClick={() =>
                   setShowForm(false)
                 }
+                disabled={saving}
               >
                 Cancel
               </button>
 
-
               <button
                 className="primary-button"
                 onClick={saveDepartment}
+                disabled={saving}
               >
-                {editingDepartment
+                {saving
+                  ? "Saving..."
+                  : editingDepartment
                   ? "Update Department"
                   : "Add Department"}
               </button>
 
             </div>
-
 
           </div>
 
@@ -654,9 +347,7 @@ function Departments() {
       )}
 
     </div>
-
   );
-
 }
 
 export default Departments;

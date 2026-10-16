@@ -1,17 +1,27 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../../services/api";
 
 function MyComplaints() {
-
   const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function fetchComplaints() {
+      try {
+        setLoading(true);
+        const data = await api.complaints.getMy();
+        if (Array.isArray(data)) {
+          setComplaints(data);
+        }
+      } catch (error) {
+        console.error("Error fetching my complaints:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-    const savedComplaints =
-      JSON.parse(localStorage.getItem("complaints")) || [];
-
-    setComplaints(savedComplaints);
-
+    fetchComplaints();
   }, []);
 
   return (
@@ -39,7 +49,11 @@ function MyComplaints() {
 
       <div className="dashboard-card">
 
-        {complaints.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+            Loading your complaints...
+          </div>
+        ) : complaints.length === 0 ? (
 
           <div className="empty-state">
 
@@ -77,7 +91,7 @@ function MyComplaints() {
 
               <div
                 className="table-row"
-                key={complaint.id}
+                key={complaint.id || complaint._id}
               >
 
                 <div>
@@ -107,11 +121,11 @@ function MyComplaints() {
                       : "pending"
                   }`}
                 >
-                  {complaint.status}
+                  {complaint.status || "Pending"}
                 </span>
 
                 <Link
-                  to={`/student/complaint/${complaint.id}`}
+                  to={`/student/complaint/${complaint.id || complaint._id}`}
                   className="view-button"
                 >
                   View

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
+import { api, setAuth, getToken } from "../../services/api";
 
 function Profile() {
-
   const [profile, setProfile] = useState({
     name: "Swathi Dhanalakshmi",
     rollNumber: "23CSE001",
@@ -13,42 +13,64 @@ function Profile() {
   });
 
   const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-
-    const saved =
-      JSON.parse(localStorage.getItem("studentProfile"));
-
-    if (saved) {
-      setProfile(saved);
+    async function loadProfile() {
+      try {
+        const data = await api.auth.getMe();
+        if (data && data.user) {
+          setProfile({
+            name: data.user.name || "",
+            rollNumber: data.user.rollNumber || data.user.studentId || "",
+            email: data.user.email || "",
+            phone: data.user.phone || "",
+            department: data.user.department || "Computer Science & Engineering",
+            year: data.user.year || "3rd Year",
+            section: data.user.section || "A"
+          });
+        }
+      } catch (err) {
+        console.warn("Could not load profile from server, using cached profile:", err.message);
+        const saved = JSON.parse(localStorage.getItem("studentProfile"));
+        if (saved) setProfile(saved);
+      }
     }
 
+    loadProfile();
   }, []);
 
-
   const handleChange = (e) => {
-
     setProfile({
       ...profile,
       [e.target.name]: e.target.value
     });
-
   };
 
+  const saveProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await api.auth.updateProfile({
+        name: profile.name,
+        rollNumber: profile.rollNumber,
+        phone: profile.phone,
+        department: profile.department,
+        year: profile.year,
+        section: profile.section
+      });
 
-  const saveProfile = () => {
+      if (res && res.user) {
+        setAuth(getToken(), res.user);
+      }
 
-    localStorage.setItem(
-      "studentProfile",
-      JSON.stringify(profile)
-    );
-
-    setEditing(false);
-
-    alert("Profile updated successfully!");
-
+      setEditing(false);
+      alert("Profile updated successfully!");
+    } catch (error) {
+      alert(error.message || "Failed to update profile");
+    } finally {
+      setLoading(false);
+    }
   };
-
 
   return (
     <div>
@@ -82,7 +104,7 @@ function Profile() {
         <div className="profile-header">
 
           <div className="large-avatar">
-            {profile.name.charAt(0)}
+            {profile.name?.charAt(0) || "S"}
           </div>
 
           <div>
@@ -159,7 +181,8 @@ function Profile() {
               <input
                 name="email"
                 value={profile.email}
-                onChange={handleChange}
+                disabled
+                title="Email cannot be changed"
               />
 
             ) : (
@@ -199,7 +222,15 @@ function Profile() {
 
             <label>Department</label>
 
-            <p>{profile.department}</p>
+            {editing ? (
+              <input
+                name="department"
+                value={profile.department}
+                onChange={handleChange}
+              />
+            ) : (
+              <p>{profile.department}</p>
+            )}
 
           </div>
 
@@ -208,7 +239,15 @@ function Profile() {
 
             <label>Year</label>
 
-            <p>{profile.year}</p>
+            {editing ? (
+              <input
+                name="year"
+                value={profile.year}
+                onChange={handleChange}
+              />
+            ) : (
+              <p>{profile.year}</p>
+            )}
 
           </div>
 
@@ -217,7 +256,15 @@ function Profile() {
 
             <label>Section</label>
 
-            <p>{profile.section}</p>
+            {editing ? (
+              <input
+                name="section"
+                value={profile.section}
+                onChange={handleChange}
+              />
+            ) : (
+              <p>{profile.section}</p>
+            )}
 
           </div>
 
@@ -231,6 +278,7 @@ function Profile() {
             <button
               className="secondary-button"
               onClick={() => setEditing(false)}
+              disabled={loading}
             >
               Cancel
             </button>
@@ -238,8 +286,9 @@ function Profile() {
             <button
               className="primary-button"
               onClick={saveProfile}
+              disabled={loading}
             >
-              Save Changes
+              {loading ? "Saving..." : "Save Changes"}
             </button>
 
           </div>

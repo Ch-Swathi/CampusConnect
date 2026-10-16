@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api, getStoredUser } from "../../services/api";
 
 function SubmitComplaint() {
   const navigate = useNavigate();
+  const user = getStoredUser();
 
   const [form, setForm] = useState({
     title: "",
@@ -13,6 +15,23 @@ function SubmitComplaint() {
     description: ""
   });
 
+  const [departments, setDepartments] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadDepts() {
+      try {
+        const data = await api.departments.getAll();
+        if (Array.isArray(data) && data.length > 0) {
+          setDepartments(data);
+        }
+      } catch (err) {
+        console.warn("Could not load departments from API, using defaults:", err.message);
+      }
+    }
+    loadDepts();
+  }, []);
+
   const handleChange = (e) => {
     setForm({
       ...form,
@@ -20,34 +39,35 @@ function SubmitComplaint() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
-    const oldComplaints =
-      JSON.parse(localStorage.getItem("complaints")) || [];
+    try {
+      await api.complaints.create({
+        ...form,
+        student: user?.name || "Swathi"
+      });
 
-    const newComplaint = {
-      id: Date.now(),
-      ...form,
-      student: "Swathi",
-      status: "Pending",
-      date: new Date().toLocaleDateString()
-    };
-
-    const updatedComplaints = [
-      newComplaint,
-      ...oldComplaints
-    ];
-
-    localStorage.setItem(
-      "complaints",
-      JSON.stringify(updatedComplaints)
-    );
-
-    alert("Complaint submitted successfully!");
-
-    navigate("/student/complaints");
+      alert("Complaint submitted successfully!");
+      navigate("/student/complaints");
+    } catch (error) {
+      alert(error.message || "Failed to submit complaint. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const defaultDepartmentList = [
+    "CSE",
+    "ECE",
+    "EEE",
+    "Mechanical",
+    "Civil",
+    "Maintenance",
+    "IT",
+    "Hostel"
+  ];
 
   return (
     <div>
@@ -75,6 +95,7 @@ function SubmitComplaint() {
                 value={form.title}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
             </div>
 
@@ -87,6 +108,7 @@ function SubmitComplaint() {
                 value={form.category}
                 onChange={handleChange}
                 required
+                disabled={loading}
               >
                 <option value="">Select Category</option>
                 <option>Infrastructure</option>
@@ -109,16 +131,20 @@ function SubmitComplaint() {
                 value={form.department}
                 onChange={handleChange}
                 required
+                disabled={loading}
               >
                 <option value="">Select Department</option>
-                <option>CSE</option>
-                <option>ECE</option>
-                <option>EEE</option>
-                <option>Mechanical</option>
-                <option>Civil</option>
-                <option>Maintenance</option>
-                <option>IT</option>
-                <option>Hostel</option>
+                {departments.length > 0
+                  ? departments.map((d) => (
+                      <option key={d.id || d._id} value={d.name}>
+                        {d.name}
+                      </option>
+                    ))
+                  : defaultDepartmentList.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
               </select>
             </div>
 
@@ -133,6 +159,7 @@ function SubmitComplaint() {
                 value={form.location}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
             </div>
 
@@ -144,6 +171,7 @@ function SubmitComplaint() {
                 name="priority"
                 value={form.priority}
                 onChange={handleChange}
+                disabled={loading}
               >
                 <option>Low</option>
                 <option>Medium</option>
@@ -165,6 +193,7 @@ function SubmitComplaint() {
               value={form.description}
               onChange={handleChange}
               required
+              disabled={loading}
             />
 
           </div>
@@ -176,6 +205,7 @@ function SubmitComplaint() {
               type="button"
               className="secondary-button"
               onClick={() => navigate("/student/dashboard")}
+              disabled={loading}
             >
               Cancel
             </button>
@@ -183,8 +213,9 @@ function SubmitComplaint() {
             <button
               type="submit"
               className="primary-button"
+              disabled={loading}
             >
-              Submit Complaint
+              {loading ? "Submitting..." : "Submit Complaint"}
             </button>
 
           </div>

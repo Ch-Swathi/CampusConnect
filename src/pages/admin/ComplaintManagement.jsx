@@ -1,113 +1,89 @@
 import { useEffect, useState } from "react";
+import { api } from "../../services/api";
 
 function ComplaintManagement() {
-
   const [complaints, setComplaints] = useState([]);
-
   const [selectedComplaint, setSelectedComplaint] = useState(null);
-
   const [status, setStatus] = useState("");
-
   const [department, setDepartment] = useState("");
-
   const [remarks, setRemarks] = useState("");
-
   const [departments, setDepartments] = useState([]);
-
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-
     loadComplaints();
-
-    const savedDepartments =
-      JSON.parse(
-        localStorage.getItem("departments")
-      ) || [];
-
-    setDepartments(savedDepartments);
-
+    loadDepartments();
   }, []);
 
-
-  const loadComplaints = () => {
-
-    const saved =
-      JSON.parse(
-        localStorage.getItem("complaints")
-      ) || [];
-
-    setComplaints(saved);
-
+  const loadComplaints = async () => {
+    try {
+      setLoading(true);
+      const data = await api.complaints.getAll();
+      if (Array.isArray(data)) {
+        setComplaints(data);
+      }
+    } catch (error) {
+      console.error("Error loading complaints:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const loadDepartments = async () => {
+    try {
+      const data = await api.departments.getAll();
+      if (Array.isArray(data)) {
+        setDepartments(data);
+      }
+    } catch (error) {
+      console.warn("Could not load departments:", error.message);
+    }
+  };
 
   const openComplaint = (complaint) => {
-
     setSelectedComplaint(complaint);
-
-    setStatus(
-      complaint.status || "Pending"
-    );
-
-    setDepartment(
-      complaint.department || ""
-    );
-
-    setRemarks(
-      complaint.adminRemarks || ""
-    );
-
+    setStatus(complaint.status || "Pending");
+    setDepartment(complaint.department || "");
+    setRemarks(complaint.adminRemarks || "");
   };
 
+  const updateComplaint = async () => {
+    if (!selectedComplaint) return;
+    const complaintId = selectedComplaint.id || selectedComplaint._id;
 
-  const updateComplaint = () => {
+    try {
+      setSaving(true);
+      await api.complaints.update(complaintId, {
+        status,
+        department,
+        adminRemarks: remarks
+      });
 
-    const saved =
-      JSON.parse(
-        localStorage.getItem("complaints")
-      ) || [];
+      setComplaints((prev) =>
+        prev.map((c) => {
+          if ((c.id || c._id) === complaintId) {
+            return {
+              ...c,
+              status,
+              department,
+              adminRemarks: remarks
+            };
+          }
+          return c;
+        })
+      );
 
-
-    const updated = saved.map((complaint) => {
-
-      if (
-        complaint.id ===
-        selectedComplaint.id
-      ) {
-
-        return {
-          ...complaint,
-          status: status,
-          department: department,
-          adminRemarks: remarks
-        };
-
-      }
-
-      return complaint;
-
-    });
-
-
-    localStorage.setItem(
-      "complaints",
-      JSON.stringify(updated)
-    );
-
-
-    setComplaints(updated);
-
-    setSelectedComplaint(null);
-
-    alert(
-      "Complaint updated successfully!"
-    );
-
+      setSelectedComplaint(null);
+      alert("Complaint updated successfully!");
+    } catch (error) {
+      alert(error.message || "Failed to update complaint");
+    } finally {
+      setSaving(false);
+    }
   };
-
 
   return (
-
     <div>
 
       <div className="page-heading">
@@ -142,7 +118,11 @@ function ComplaintManagement() {
         </div>
 
 
-        {complaints.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+            Loading complaints...
+          </div>
+        ) : complaints.length === 0 ? (
 
           <div className="empty-state">
 
@@ -191,7 +171,7 @@ function ComplaintManagement() {
 
                 {complaints.map((complaint) => (
 
-                  <tr key={complaint.id}>
+                  <tr key={complaint.id || complaint._id}>
 
                     <td>
 
@@ -388,7 +368,7 @@ function ComplaintManagement() {
                 {departments.map((item) => (
 
                   <option
-                    key={item.id}
+                    key={item.id || item._id}
                     value={item.name}
                   >
                     {item.name}
@@ -426,6 +406,7 @@ function ComplaintManagement() {
                 onClick={() =>
                   setSelectedComplaint(null)
                 }
+                disabled={saving}
               >
                 Cancel
               </button>
@@ -433,8 +414,9 @@ function ComplaintManagement() {
               <button
                 className="primary-button"
                 onClick={updateComplaint}
+                disabled={saving}
               >
-                Save Changes
+                {saving ? "Saving..." : "Save Changes"}
               </button>
 
             </div>

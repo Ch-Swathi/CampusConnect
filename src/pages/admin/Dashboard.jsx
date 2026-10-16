@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../../services/api";
 
 function Dashboard() {
-
   const [stats, setStats] = useState({
     complaints: 0,
     pending: 0,
@@ -11,44 +11,38 @@ function Dashboard() {
     lostFound: 0
   });
 
+  const [backendStatus, setBackendStatus] = useState("Checking...");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function loadAdminData() {
+      try {
+        setLoading(true);
+        const [statsData, healthData] = await Promise.all([
+          api.stats.getDashboard(),
+          api.health().catch(() => ({ status: "offline" }))
+        ]);
 
-    const complaints =
-      JSON.parse(localStorage.getItem("complaints")) || [];
-
-    const items =
-      JSON.parse(localStorage.getItem("lostFoundItems")) || [];
-
-    const students =
-      JSON.parse(localStorage.getItem("students")) || [
-        {
-          id: 1,
-          name: "Swathi Dhanalakshmi"
+        if (statsData) {
+          setStats({
+            complaints: statsData.complaints || 0,
+            pending: statsData.pending || 0,
+            resolved: statsData.resolved || 0,
+            students: statsData.students || 0,
+            lostFound: statsData.lostFound || 0
+          });
         }
-      ];
 
+        setBackendStatus(healthData.status === "ok" ? "Active" : "Degraded");
+      } catch (error) {
+        console.error("Error loading admin dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-    setStats({
-
-      complaints: complaints.length,
-
-      pending: complaints.filter(
-        (item) => item.status === "Pending"
-      ).length,
-
-      resolved: complaints.filter(
-        (item) => item.status === "Resolved"
-      ).length,
-
-      students: students.length,
-
-      lostFound: items.length
-
-    });
-
+    loadAdminData();
   }, []);
-
 
   return (
     <div>
@@ -85,7 +79,7 @@ function Dashboard() {
 
             <span>Total Complaints</span>
 
-            <h2>{stats.complaints}</h2>
+            <h2>{loading ? "-" : stats.complaints}</h2>
 
           </div>
 
@@ -102,7 +96,7 @@ function Dashboard() {
 
             <span>Pending Complaints</span>
 
-            <h2>{stats.pending}</h2>
+            <h2>{loading ? "-" : stats.pending}</h2>
 
           </div>
 
@@ -119,7 +113,7 @@ function Dashboard() {
 
             <span>Resolved</span>
 
-            <h2>{stats.resolved}</h2>
+            <h2>{loading ? "-" : stats.resolved}</h2>
 
           </div>
 
@@ -136,7 +130,7 @@ function Dashboard() {
 
             <span>Students</span>
 
-            <h2>{stats.students}</h2>
+            <h2>{loading ? "-" : stats.students}</h2>
 
           </div>
 
@@ -153,7 +147,7 @@ function Dashboard() {
 
             <span>Lost & Found</span>
 
-            <h2>{stats.lostFound}</h2>
+            <h2>{loading ? "-" : stats.lostFound}</h2>
 
           </div>
 
@@ -280,6 +274,18 @@ function Dashboard() {
           </div>
 
           <strong>Active</strong>
+
+        </div>
+
+
+        <div className="system-status">
+
+          <div>
+            <span className="status-dot"></span>
+            Backend API & Database
+          </div>
+
+          <strong>{backendStatus}</strong>
 
         </div>
 

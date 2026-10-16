@@ -1,28 +1,39 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { api } from "../../services/api";
 
 function ComplaintDetails() {
-
   const { id } = useParams();
-
   const [complaint, setComplaint] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function fetchComplaint() {
+      try {
+        setLoading(true);
+        const data = await api.complaints.getById(id);
+        setComplaint(data);
+      } catch (error) {
+        console.error("Error fetching complaint:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-    const complaints =
-      JSON.parse(localStorage.getItem("complaints")) || [];
-
-    const found = complaints.find(
-      (item) => item.id.toString() === id
-    );
-
-    setComplaint(found);
-
+    if (id) {
+      fetchComplaint();
+    }
   }, [id]);
 
+  if (loading) {
+    return (
+      <div className="dashboard-card" style={{ padding: "40px", textAlign: "center" }}>
+        <h2>Loading complaint details...</h2>
+      </div>
+    );
+  }
 
   if (!complaint) {
-
     return (
       <div className="dashboard-card">
         <h2>Complaint not found</h2>
@@ -32,9 +43,11 @@ function ComplaintDetails() {
         </Link>
       </div>
     );
-
   }
 
+  const isAssigned = Boolean(complaint.department && complaint.department !== "Not Assigned");
+  const isInProgress = complaint.status === "In Progress" || complaint.status === "Resolved";
+  const isResolved = complaint.status === "Resolved";
 
   return (
     <div>
@@ -45,7 +58,7 @@ function ComplaintDetails() {
           <h1>Complaint Details</h1>
 
           <p>
-            Complaint #{complaint.id}
+            Complaint #{complaint.id || complaint._id}
           </p>
         </div>
 
@@ -80,7 +93,7 @@ function ComplaintDetails() {
                 : "pending"
             }`}
           >
-            {complaint.status}
+            {complaint.status || "Pending"}
           </span>
 
         </div>
@@ -95,7 +108,7 @@ function ComplaintDetails() {
 
           <div>
             <label>Department</label>
-            <p>{complaint.department}</p>
+            <p>{complaint.department || "General"}</p>
           </div>
 
           <div>
@@ -105,7 +118,7 @@ function ComplaintDetails() {
 
           <div>
             <label>Priority</label>
-            <p>{complaint.priority}</p>
+            <p>{complaint.priority || "Medium"}</p>
           </div>
 
         </div>
@@ -121,6 +134,13 @@ function ComplaintDetails() {
 
         </div>
 
+        {complaint.adminRemarks && (
+          <div className="description-box" style={{ marginTop: "15px", borderLeft: "4px solid #4f46e5" }}>
+            <label>Admin Remarks</label>
+            <p>{complaint.adminRemarks}</p>
+          </div>
+        )}
+
 
         <div className="timeline">
 
@@ -134,27 +154,27 @@ function ComplaintDetails() {
             </div>
           </div>
 
-          <div className="timeline-item">
-            <span>2</span>
+          <div className={`timeline-item ${isAssigned ? "active" : ""}`}>
+            <span>{isAssigned ? "✓" : "2"}</span>
             <div>
               <strong>Complaint Assigned</strong>
-              <p>Waiting for department assignment</p>
+              <p>{isAssigned ? `Assigned to ${complaint.department}` : "Waiting for department assignment"}</p>
             </div>
           </div>
 
-          <div className="timeline-item">
-            <span>3</span>
+          <div className={`timeline-item ${isInProgress ? "active" : ""}`}>
+            <span>{isInProgress ? "✓" : "3"}</span>
             <div>
               <strong>Work in Progress</strong>
-              <p>Pending</p>
+              <p>{isInProgress ? "Department is investigating issue" : "Pending"}</p>
             </div>
           </div>
 
-          <div className="timeline-item">
-            <span>4</span>
+          <div className={`timeline-item ${isResolved ? "active" : ""}`}>
+            <span>{isResolved ? "✓" : "4"}</span>
             <div>
               <strong>Resolved</strong>
-              <p>Pending</p>
+              <p>{isResolved ? "Issue resolved and closed" : "Pending"}</p>
             </div>
           </div>
 

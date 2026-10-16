@@ -1,235 +1,109 @@
 import { useEffect, useState } from "react";
+import { api } from "../../services/api";
 
 function Announcements() {
-
   const [announcements, setAnnouncements] = useState([]);
-
   const [search, setSearch] = useState("");
-
   const [showForm, setShowForm] = useState(false);
-
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
-
   const [title, setTitle] = useState("");
-
   const [message, setMessage] = useState("");
-
   const [important, setImportant] = useState(false);
-
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-
     loadAnnouncements();
-
   }, []);
 
-
-  const loadAnnouncements = () => {
-
-    const saved =
-      JSON.parse(
-        localStorage.getItem("announcements")
-      ) || [];
-
-    setAnnouncements(saved);
-
+  const loadAnnouncements = async () => {
+    try {
+      setLoading(true);
+      const data = await api.announcements.getAll();
+      if (Array.isArray(data)) {
+        setAnnouncements(data);
+      }
+    } catch (error) {
+      console.error("Error loading announcements:", error);
+    } finally {
+      setLoading(false);
+    }
   };
-
 
   const openAddForm = () => {
-
     setEditingAnnouncement(null);
-
     setTitle("");
-
     setMessage("");
-
     setImportant(false);
-
     setShowForm(true);
-
   };
-
 
   const openEditForm = (announcement) => {
-
     setEditingAnnouncement(announcement);
-
     setTitle(announcement.title);
-
     setMessage(announcement.message);
-
-    setImportant(
-      announcement.important || false
-    );
-
+    setImportant(announcement.important || false);
     setShowForm(true);
-
   };
 
-
-  const saveAnnouncement = () => {
-
+  const saveAnnouncement = async () => {
     if (!title.trim()) {
-
-      alert(
-        "Please enter announcement title."
-      );
-
+      alert("Please enter announcement title.");
       return;
-
     }
-
 
     if (!message.trim()) {
-
-      alert(
-        "Please enter announcement message."
-      );
-
-      return;
-
-    }
-
-
-    const saved =
-      JSON.parse(
-        localStorage.getItem("announcements")
-      ) || [];
-
-
-    if (editingAnnouncement) {
-
-      const updated = saved.map(
-        (announcement) => {
-
-          if (
-            announcement.id ===
-            editingAnnouncement.id
-          ) {
-
-            return {
-              ...announcement,
-              title: title.trim(),
-              message: message.trim(),
-              important: important
-            };
-
-          }
-
-          return announcement;
-
-        }
-      );
-
-
-      localStorage.setItem(
-        "announcements",
-        JSON.stringify(updated)
-      );
-
-      setAnnouncements(updated);
-
-      alert(
-        "Announcement updated successfully!"
-      );
-
-    } else {
-
-      const newAnnouncement = {
-
-        id: Date.now(),
-
-        title: title.trim(),
-
-        message: message.trim(),
-
-        important: important,
-
-        date: new Date().toLocaleDateString(),
-
-        createdAt: new Date().toISOString()
-
-      };
-
-
-      const updated = [
-        newAnnouncement,
-        ...saved
-      ];
-
-
-      localStorage.setItem(
-        "announcements",
-        JSON.stringify(updated)
-      );
-
-      setAnnouncements(updated);
-
-      alert(
-        "Announcement created successfully!"
-      );
-
-    }
-
-
-    setShowForm(false);
-
-  };
-
-
-  const deleteAnnouncement = (id) => {
-
-    const confirmDelete =
-      window.confirm(
-        "Are you sure you want to delete this announcement?"
-      );
-
-    if (!confirmDelete) {
+      alert("Please enter announcement message.");
       return;
     }
 
-
-    const updated =
-      announcements.filter(
-        (announcement) =>
-          announcement.id !== id
-      );
-
-
-    localStorage.setItem(
-      "announcements",
-      JSON.stringify(updated)
-    );
-
-    setAnnouncements(updated);
-
-    alert(
-      "Announcement deleted successfully!"
-    );
-
-  };
-
-
-  const filteredAnnouncements =
-    announcements.filter(
-      (announcement) => {
-
-        const text =
-          `${announcement.title}
-           ${announcement.message}`
-            .toLowerCase();
-
-        return text.includes(
-          search.toLowerCase()
-        );
-
+    try {
+      setSaving(true);
+      if (editingAnnouncement) {
+        const id = editingAnnouncement.id || editingAnnouncement._id;
+        await api.announcements.update(id, {
+          title: title.trim(),
+          message: message.trim(),
+          important
+        });
+        alert("Announcement updated successfully!");
+      } else {
+        await api.announcements.create({
+          title: title.trim(),
+          message: message.trim(),
+          important
+        });
+        alert("Announcement created successfully!");
       }
-    );
 
+      await loadAnnouncements();
+      setShowForm(false);
+    } catch (error) {
+      alert(error.message || "Failed to save announcement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteAnnouncement = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this announcement?");
+    if (!confirmDelete) return;
+
+    try {
+      await api.announcements.delete(id);
+      alert("Announcement deleted successfully!");
+      setAnnouncements((prev) => prev.filter((a) => (a.id || a._id) !== id));
+    } catch (error) {
+      alert(error.message || "Failed to delete announcement.");
+    }
+  };
+
+  const filteredAnnouncements = announcements.filter((announcement) => {
+    const text = `${announcement.title || ""} ${announcement.message || ""}`.toLowerCase();
+    return text.includes(search.toLowerCase());
+  });
 
   return (
-
     <div>
 
       <div className="page-heading">
@@ -245,7 +119,6 @@ function Announcements() {
           </p>
 
         </div>
-
 
         <button
           className="primary-button"
@@ -268,7 +141,6 @@ function Announcements() {
           }
         />
 
-
         <span>
           {filteredAnnouncements.length} announcements
         </span>
@@ -276,7 +148,11 @@ function Announcements() {
       </div>
 
 
-      {filteredAnnouncements.length === 0 ? (
+      {loading ? (
+        <div className="dashboard-card" style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+          Loading announcements...
+        </div>
+      ) : filteredAnnouncements.length === 0 ? (
 
         <div className="empty-state">
 
@@ -296,12 +172,12 @@ function Announcements() {
 
         <div className="announcement-list">
 
-          {filteredAnnouncements.map(
-            (announcement) => (
-
+          {filteredAnnouncements.map((announcement) => {
+            const annId = announcement.id || announcement._id;
+            return (
               <div
                 className="announcement-card"
-                key={announcement.id}
+                key={annId}
               >
 
                 <div className="announcement-card-top">
@@ -316,44 +192,35 @@ function Announcements() {
 
                   </div>
 
-
                   <span>
                     {announcement.date}
                   </span>
 
                 </div>
 
-
                 <h2>
                   {announcement.title}
                 </h2>
 
-
                 <p>
                   {announcement.message}
                 </p>
-
 
                 <div className="announcement-actions">
 
                   <button
                     className="edit-button"
                     onClick={() =>
-                      openEditForm(
-                        announcement
-                      )
+                      openEditForm(announcement)
                     }
                   >
                     Edit
                   </button>
 
-
                   <button
                     className="delete-button"
                     onClick={() =>
-                      deleteAnnouncement(
-                        announcement.id
-                      )
+                      deleteAnnouncement(annId)
                     }
                   >
                     Delete
@@ -362,9 +229,8 @@ function Announcements() {
                 </div>
 
               </div>
-
-            )
-          )}
+            );
+          })}
 
         </div>
 
@@ -382,11 +248,9 @@ function Announcements() {
               <div>
 
                 <h2>
-
                   {editingAnnouncement
                     ? "Edit Announcement"
                     : "New Announcement"}
-
                 </h2>
 
                 <p>
@@ -394,7 +258,6 @@ function Announcements() {
                 </p>
 
               </div>
-
 
               <button
                 className="close-button"
@@ -421,6 +284,7 @@ function Announcements() {
                   setTitle(e.target.value)
                 }
                 placeholder="Enter announcement title"
+                required
               />
 
             </div>
@@ -439,6 +303,7 @@ function Announcements() {
                   setMessage(e.target.value)
                 }
                 placeholder="Enter announcement message"
+                required
               />
 
             </div>
@@ -452,9 +317,7 @@ function Announcements() {
                   type="checkbox"
                   checked={important}
                   onChange={(e) =>
-                    setImportant(
-                      e.target.checked
-                    )
+                    setImportant(e.target.checked)
                   }
                 />
 
@@ -472,20 +335,21 @@ function Announcements() {
                 onClick={() =>
                   setShowForm(false)
                 }
+                disabled={saving}
               >
                 Cancel
               </button>
 
-
               <button
                 className="primary-button"
                 onClick={saveAnnouncement}
+                disabled={saving}
               >
-
-                {editingAnnouncement
+                {saving
+                  ? "Saving..."
+                  : editingAnnouncement
                   ? "Update Announcement"
                   : "Create Announcement"}
-
               </button>
 
             </div>
@@ -497,9 +361,7 @@ function Announcements() {
       )}
 
     </div>
-
   );
-
 }
 
 export default Announcements;

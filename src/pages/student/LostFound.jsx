@@ -1,24 +1,40 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../../services/api";
 
 function LostFound() {
-
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedItems =
-      JSON.parse(localStorage.getItem("lostFoundItems")) || [];
+    async function fetchItems() {
+      try {
+        setLoading(true);
+        const data = await api.lostFound.getAll();
+        if (Array.isArray(data)) {
+          setItems(data);
+        }
+      } catch (error) {
+        console.error("Error fetching lost and found items:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
 
-    setItems(savedItems);
+    fetchItems();
   }, []);
 
   const filteredItems = items.filter((item) => {
+    const itemName = item.itemName || "";
+    const location = item.location || "";
+    const description = item.description || "";
 
     const matchesSearch =
-      item.itemName.toLowerCase().includes(search.toLowerCase()) ||
-      item.location.toLowerCase().includes(search.toLowerCase());
+      itemName.toLowerCase().includes(search.toLowerCase()) ||
+      location.toLowerCase().includes(search.toLowerCase()) ||
+      description.toLowerCase().includes(search.toLowerCase());
 
     const matchesFilter =
       filter === "All" || item.type === filter;
@@ -93,7 +109,11 @@ function LostFound() {
 
       {/* Items */}
 
-      {filteredItems.length === 0 ? (
+      {loading ? (
+        <div className="dashboard-card" style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+          Loading lost & found items...
+        </div>
+      ) : filteredItems.length === 0 ? (
 
         <div className="dashboard-card empty-state">
 
@@ -115,7 +135,7 @@ function LostFound() {
 
             <div
               className="lost-found-card"
-              key={item.id}
+              key={item.id || item._id}
             >
 
               <div className="item-image">

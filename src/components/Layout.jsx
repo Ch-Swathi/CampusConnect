@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { getStoredUser, clearAuth } from "../services/api";
 
 import {
   LayoutDashboard,
@@ -19,6 +20,7 @@ import {
 function Layout({ children }) {
 
   const location = useLocation();
+  const currentUser = getStoredUser();
 
 
   // Check whether current page is an ADMIN page
@@ -228,6 +230,7 @@ function Layout({ children }) {
         <Link
           to="/login"
           className="logout-button"
+          onClick={() => clearAuth()}
         >
 
           <LogOut size={20} />
@@ -279,14 +282,14 @@ function Layout({ children }) {
           <div className="topbar-user">
 
 
-            <Bell size={22} />
+            <Link to={isAdmin ? "/admin/announcements" : "/student/notifications"} style={{ color: "inherit", display: "flex" }}>
+              <Bell size={22} />
+            </Link>
 
 
             <div className="user-avatar">
 
-              {isAdmin
-                ? "A"
-                : "S"}
+              {currentUser?.name?.charAt(0)?.toUpperCase() || (isAdmin ? "A" : "S")}
 
             </div>
 

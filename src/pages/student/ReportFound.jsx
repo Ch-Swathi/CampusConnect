@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api, getStoredUser } from "../../services/api";
 
 function ReportFound() {
-
   const navigate = useNavigate();
+  const user = getStoredUser();
 
   const [form, setForm] = useState({
     itemName: "",
@@ -14,56 +15,34 @@ function ReportFound() {
     contact: ""
   });
 
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-
     setForm({
       ...form,
       [e.target.name]: e.target.value
     });
-
   };
 
-
-  const handleSubmit = (e) => {
-
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
-    const oldItems =
-      JSON.parse(localStorage.getItem("lostFoundItems")) || [];
+    try {
+      await api.lostFound.create({
+        ...form,
+        type: "Found",
+        student: user?.name || "Swathi"
+      });
 
-    const newItem = {
-
-      id: Date.now(),
-
-      type: "Found",
-
-      ...form,
-
-      student: "Swathi",
-
-      status: "Active",
-
-      datePosted: new Date().toLocaleDateString()
-
-    };
-
-
-    localStorage.setItem(
-      "lostFoundItems",
-      JSON.stringify([
-        newItem,
-        ...oldItems
-      ])
-    );
-
-
-    alert("Found item reported successfully!");
-
-    navigate("/student/lost-found");
-
+      alert("Found item reported successfully!");
+      navigate("/student/lost-found");
+    } catch (error) {
+      alert(error.message || "Failed to report found item. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
-
 
   return (
     <div>
@@ -101,6 +80,7 @@ function ReportFound() {
                 value={form.itemName}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
 
             </div>
@@ -115,6 +95,7 @@ function ReportFound() {
                 value={form.category}
                 onChange={handleChange}
                 required
+                disabled={loading}
               >
 
                 <option value="">
@@ -146,6 +127,7 @@ function ReportFound() {
                 value={form.location}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
 
             </div>
@@ -161,6 +143,7 @@ function ReportFound() {
                 value={form.date}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
 
             </div>
@@ -177,6 +160,7 @@ function ReportFound() {
                 value={form.contact}
                 onChange={handleChange}
                 required
+                disabled={loading}
               />
 
             </div>
@@ -195,6 +179,7 @@ function ReportFound() {
               value={form.description}
               onChange={handleChange}
               required
+              disabled={loading}
             />
 
           </div>
@@ -208,6 +193,7 @@ function ReportFound() {
               onClick={() =>
                 navigate("/student/lost-found")
               }
+              disabled={loading}
             >
               Cancel
             </button>
@@ -215,8 +201,9 @@ function ReportFound() {
             <button
               type="submit"
               className="primary-button"
+              disabled={loading}
             >
-              Report Found Item
+              {loading ? "Submitting..." : "Report Found Item"}
             </button>
 
           </div>

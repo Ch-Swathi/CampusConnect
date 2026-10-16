@@ -1,59 +1,36 @@
 import { useEffect, useState } from "react";
+import { api } from "../../services/api";
 
 function Notifications() {
   const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadNotifications = async () => {
+    try {
+      setLoading(true);
+      const data = await api.notifications.getAll();
+      if (Array.isArray(data)) {
+        setNotifications(data);
+      }
+    } catch (error) {
+      console.error("Error loading notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadNotifications();
-
-    window.addEventListener("storage", loadNotifications);
-
-    return () => {
-      window.removeEventListener("storage", loadNotifications);
-    };
   }, []);
 
-  const loadNotifications = () => {
-    const normalNotifications =
-      JSON.parse(localStorage.getItem("notifications")) || [];
-
-    const announcements =
-      JSON.parse(localStorage.getItem("announcements")) || [];
-
-    const announcementNotifications = announcements.map((item) => ({
-      id: `announcement-${item.id}`,
-      title: item.important
-        ? `Important: ${item.title}`
-        : item.title,
-      message: item.message,
-      date: item.date,
-      type: "Announcement",
-      important: item.important,
-    }));
-
-    const combined = [
-      ...announcementNotifications,
-      ...normalNotifications,
-    ];
-
-    combined.sort((a, b) => {
-      return String(b.id).localeCompare(String(a.id));
-    });
-
-    setNotifications(combined);
-  };
-
-  const clearNotifications = () => {
-    const normalNotifications =
-      JSON.parse(localStorage.getItem("notifications")) || [];
-
-    localStorage.setItem("notifications", JSON.stringify([]));
-
-    setNotifications(
-      notifications.filter(
-        (item) => item.type === "Announcement"
-      )
-    );
+  const clearNotifications = async () => {
+    try {
+      await api.notifications.clear();
+      setNotifications(notifications.filter((item) => item.type === "Announcement"));
+      alert("Personal notifications cleared.");
+    } catch (error) {
+      alert(error.message || "Failed to clear notifications");
+    }
   };
 
   return (
@@ -76,7 +53,11 @@ function Notifications() {
         )}
       </div>
 
-      {notifications.length === 0 ? (
+      {loading ? (
+        <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+          Loading notifications...
+        </div>
+      ) : notifications.length === 0 ? (
         <div className="empty-state">
           <h3>No Notifications</h3>
           <p>You don't have any notifications right now.</p>
@@ -88,9 +69,9 @@ function Notifications() {
             gap: "15px",
           }}
         >
-          {notifications.map((notification) => (
+          {notifications.map((notification, index) => (
             <div
-              key={notification.id}
+              key={notification.id || notification._id || index}
               className="management-card"
               style={{
                 padding: "20px",

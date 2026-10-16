@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
+import { api } from "../../services/api";
 
 function Students() {
-
   const [students, setStudents] = useState([]);
-
   const [search, setSearch] = useState("");
-
   const [showForm, setShowForm] = useState(false);
-
   const [editingStudent, setEditingStudent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -20,44 +19,33 @@ function Students() {
     section: "A"
   });
 
-
-  // LOAD STUDENTS
-
   useEffect(() => {
-
     loadStudents();
-
   }, []);
 
-
-  const loadStudents = () => {
-
-    const saved =
-      JSON.parse(localStorage.getItem("students")) || [];
-
-    setStudents(saved);
-
+  const loadStudents = async () => {
+    try {
+      setLoading(true);
+      const data = await api.students.getAll();
+      if (Array.isArray(data)) {
+        setStudents(data);
+      }
+    } catch (error) {
+      console.error("Error loading students:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-
-  // INPUT CHANGE
-
   const handleChange = (e) => {
-
     setForm({
       ...form,
       [e.target.name]: e.target.value
     });
-
   };
 
-
-  // OPEN ADD FORM
-
   const openAddForm = () => {
-
     setEditingStudent(null);
-
     setForm({
       name: "",
       rollNumber: "",
@@ -67,176 +55,68 @@ function Students() {
       year: "3rd Year",
       section: "A"
     });
-
     setShowForm(true);
-
   };
 
-
-  // OPEN EDIT FORM
-
   const openEditForm = (student) => {
-
     setEditingStudent(student);
-
     setForm({
       name: student.name || "",
-      rollNumber: student.rollNumber || "",
+      rollNumber: student.rollNumber || student.studentId || "",
       email: student.email || "",
       phone: student.phone || "",
-      department:
-        student.department ||
-        "Computer Science & Engineering",
+      department: student.department || "Computer Science & Engineering",
       year: student.year || "3rd Year",
       section: student.section || "A"
     });
-
     setShowForm(true);
-
   };
 
-
-  // SAVE STUDENT
-
-  const saveStudent = () => {
-
+  const saveStudent = async () => {
     if (!form.name || !form.rollNumber || !form.email) {
-
-      alert(
-        "Please enter Name, Roll Number and Email."
-      );
-
-      return;
-
-    }
-
-
-    const saved =
-      JSON.parse(localStorage.getItem("students")) || [];
-
-
-    if (editingStudent) {
-
-      const updated = saved.map((student) => {
-
-        if (student.id === editingStudent.id) {
-
-          return {
-            ...student,
-            ...form
-          };
-
-        }
-
-        return student;
-
-      });
-
-
-      localStorage.setItem(
-        "students",
-        JSON.stringify(updated)
-      );
-
-      setStudents(updated);
-
-      alert("Student updated successfully!");
-
-    } else {
-
-      const newStudent = {
-
-        id: Date.now(),
-
-        ...form,
-
-        createdAt: new Date().toLocaleDateString()
-
-      };
-
-
-      const updated = [
-        ...saved,
-        newStudent
-      ];
-
-
-      localStorage.setItem(
-        "students",
-        JSON.stringify(updated)
-      );
-
-      setStudents(updated);
-
-      alert("Student added successfully!");
-
-    }
-
-
-    setShowForm(false);
-
-  };
-
-
-  // DELETE STUDENT
-
-  const deleteStudent = (id) => {
-
-    const confirmDelete =
-      window.confirm(
-        "Are you sure you want to delete this student?"
-      );
-
-
-    if (!confirmDelete) {
+      alert("Please enter Name, Roll Number and Email.");
       return;
     }
 
+    try {
+      setSaving(true);
+      if (editingStudent) {
+        const studentId = editingStudent.id || editingStudent._id;
+        await api.students.update(studentId, form);
+        alert("Student updated successfully!");
+      } else {
+        await api.students.create(form);
+        alert("Student added successfully!");
+      }
 
-    const saved =
-      JSON.parse(localStorage.getItem("students")) || [];
-
-
-    const updated =
-      saved.filter(
-        (student) => student.id !== id
-      );
-
-
-    localStorage.setItem(
-      "students",
-      JSON.stringify(updated)
-    );
-
-
-    setStudents(updated);
-
-    alert("Student deleted successfully!");
-
+      await loadStudents();
+      setShowForm(false);
+    } catch (error) {
+      alert(error.message || "Failed to save student.");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  const deleteStudent = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this student?");
+    if (!confirmDelete) return;
 
-  // SEARCH
+    try {
+      await api.students.delete(id);
+      alert("Student deleted successfully!");
+      setStudents((prev) => prev.filter((s) => (s.id || s._id) !== id));
+    } catch (error) {
+      alert(error.message || "Failed to delete student.");
+    }
+  };
 
-  const filteredStudents =
-    students.filter((student) => {
-
-      const text =
-        `${student.name || ""} 
-         ${student.rollNumber || ""}
-         ${student.email || ""}
-         ${student.department || ""}`
-          .toLowerCase();
-
-      return text.includes(
-        search.toLowerCase()
-      );
-
-    });
-
+  const filteredStudents = students.filter((student) => {
+    const text = `${student.name || ""} ${student.rollNumber || ""} ${student.email || ""} ${student.department || ""}`.toLowerCase();
+    return text.includes(search.toLowerCase());
+  });
 
   return (
-
     <div>
 
       {/* PAGE HEADER */}
@@ -252,7 +132,6 @@ function Students() {
           </p>
 
         </div>
-
 
         <button
           className="primary-button"
@@ -278,10 +157,7 @@ function Students() {
         />
 
         <span>
-          {filteredStudents.length} student
-          {filteredStudents.length !== 1
-            ? "s"
-            : ""}
+          {filteredStudents.length} student{filteredStudents.length !== 1 ? "s" : ""}
         </span>
 
       </div>
@@ -291,7 +167,11 @@ function Students() {
 
       <div className="admin-table-card">
 
-        {filteredStudents.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#6b7280" }}>
+            Loading students...
+          </div>
+        ) : filteredStudents.length === 0 ? (
 
           <div className="empty-state">
 
@@ -336,19 +216,17 @@ function Students() {
 
               <tbody>
 
-                {filteredStudents.map(
-                  (student) => (
-
-                    <tr key={student.id}>
+                {filteredStudents.map((student) => {
+                  const studentId = student.id || student._id;
+                  return (
+                    <tr key={studentId}>
 
                       <td>
 
                         <div className="student-table-name">
 
                           <div className="student-mini-avatar">
-                            {student.name
-                              ?.charAt(0)
-                              ?.toUpperCase() || "S"}
+                            {student.name?.charAt(0)?.toUpperCase() || "S"}
                           </div>
 
                           <strong>
@@ -359,31 +237,25 @@ function Students() {
 
                       </td>
 
-
                       <td>
-                        {student.rollNumber}
+                        {student.rollNumber || student.studentId}
                       </td>
-
 
                       <td>
                         {student.email}
                       </td>
 
-
                       <td>
                         {student.department}
                       </td>
-
 
                       <td>
                         {student.year}
                       </td>
 
-
                       <td>
                         {student.section}
                       </td>
-
 
                       <td>
 
@@ -398,11 +270,10 @@ function Students() {
                             Edit
                           </button>
 
-
                           <button
                             className="delete-button"
                             onClick={() =>
-                              deleteStudent(student.id)
+                              deleteStudent(studentId)
                             }
                           >
                             Delete
@@ -413,9 +284,8 @@ function Students() {
                       </td>
 
                     </tr>
-
-                  )
-                )}
+                  );
+                })}
 
               </tbody>
 
@@ -452,7 +322,6 @@ function Students() {
 
               </div>
 
-
               <button
                 className="close-button"
                 onClick={() =>
@@ -466,7 +335,6 @@ function Students() {
 
 
             <div className="student-form-grid">
-
 
               {/* NAME */}
 
@@ -482,6 +350,7 @@ function Students() {
                   value={form.name}
                   onChange={handleChange}
                   placeholder="Enter full name"
+                  required
                 />
 
               </div>
@@ -501,6 +370,7 @@ function Students() {
                   value={form.rollNumber}
                   onChange={handleChange}
                   placeholder="Enter roll number"
+                  required
                 />
 
               </div>
@@ -520,6 +390,7 @@ function Students() {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="student@example.com"
+                  required
                 />
 
               </div>
@@ -634,7 +505,6 @@ function Students() {
 
               </div>
 
-
             </div>
 
 
@@ -645,16 +515,19 @@ function Students() {
                 onClick={() =>
                   setShowForm(false)
                 }
+                disabled={saving}
               >
                 Cancel
               </button>
 
-
               <button
                 className="primary-button"
                 onClick={saveStudent}
+                disabled={saving}
               >
-                {editingStudent
+                {saving
+                  ? "Saving..."
+                  : editingStudent
                   ? "Update Student"
                   : "Add Student"}
               </button>
@@ -668,7 +541,6 @@ function Students() {
       )}
 
     </div>
-
   );
 }
 
